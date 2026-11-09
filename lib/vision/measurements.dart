@@ -26,7 +26,7 @@ class SessionMeasurements {
   final int? fixationCount, avgFixationMs, saccadeCount;
 
   // head posture
-  final int? alignedSec, slightSec, deviatedSec;
+  final double? alignedSec, slightSec, deviatedSec;
   final bool headUsedSessionMedian; // true = reference set nahi tha
 
   const SessionMeasurements({
@@ -186,7 +186,7 @@ SessionMeasurements computeMeasurements(
   }
 
   // ================= HEAD POSTURE =================
-  int? aligned, slight, deviated;
+  double? aligned, slight, deviated;
   var usedMedian = false;
   bool validHead(int i) =>
       r[i].faceVisible &&
@@ -224,9 +224,9 @@ SessionMeasurements computeMeasurements(
         a += ms;
       }
     }
-    aligned = (a / 1000).round();
-    slight = (s / 1000).round();
-    deviated = (d / 1000).round();
+    aligned = a / 1000;
+    slight = s / 1000;
+    deviated = d / 1000;
   }
 
   return SessionMeasurements(

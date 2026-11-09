@@ -15,7 +15,7 @@ class SummaryScreen extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         ]),
       );
 
@@ -27,20 +27,27 @@ class SummaryScreen extends ConsumerWidget {
     final ins = ref.watch(lastInsightsProvider);
 
     const na = 'Not available';
-    final closedNote = (last?.eyesClosed ?? false) ? 'Not available (eyes closed)' : na;
+    final closedNote = (last?.eyesClosed ?? false) ? 'Unavailable (eyes closed)' : na;
 
     final blinks = (m == null || m.blinkCount == null)
         ? closedNote
         : m.blinkRate == null
             ? '${m.blinkCount} · rate needs more data'
             : '${m.blinkCount} · ${m.blinkRate!.toStringAsFixed(0)} / min';
-    final blinkDur = m?.avgBlinkMs == null ? closedNote : '${m!.avgBlinkMs} ms';
+    final blinkDur = m?.avgBlinkMs == null
+        ? (m?.blinkCount == 0 ? 'No blinks detected' : closedNote)
+        : '${m!.avgBlinkMs} ms';
     final gaze = m?.gazeStability == null
         ? closedNote
         : '${(m!.gazeStability! * 100).round()}%';
     final head = (m == null || m.alignedSec == null)
         ? na
         : '${m.alignedSec}s aligned · ${m.deviatedSec}s deviated';
+    final detailedHead = (m == null || m.alignedSec == null || m.slightSec == null)
+        ? head
+        : '${m.alignedSec!.toStringAsFixed(1)}s aligned / '
+            '${m.slightSec!.toStringAsFixed(1)}s slight / '
+            '${m.deviatedSec!.toStringAsFixed(1)}s deviated';
     final fixations = (m == null || m.fixationCount == null)
         ? closedNote
         : '${m.fixationCount}${m.avgFixationMs == null ? '' : ' · avg ${m.avgFixationMs} ms'}';
@@ -61,18 +68,6 @@ class SummaryScreen extends ConsumerWidget {
           style: const TextStyle(color: AppColors.muted),
         ),
         const SizedBox(height: 16),
-        Center(
-          child: Container(
-            width: 120, height: 120,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.accent, width: 8),
-            ),
-            alignment: Alignment.center,
-            child: const Text('72', style: TextStyle(fontSize: 44, fontFamily: 'serif')),
-          ),
-        ),
-        const SizedBox(height: 16),
         AppCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SectionLabel('Visual behaviour pattern'),
@@ -85,18 +80,18 @@ class SummaryScreen extends ConsumerWidget {
             ),
           ]),
         ),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView.extent(
+          maxCrossAxisExtent: 260,
+          mainAxisExtent: 138,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 2.2,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
           children: [
             _tile('Blinks', blinks),
             _tile('Avg blink duration', blinkDur),
             _tile('Gaze stability', gaze),
-            _tile('Head posture', head),
+            _tile('Head posture', detailedHead),
           ],
         ),
         const SizedBox(height: 12),
@@ -111,9 +106,9 @@ class SummaryScreen extends ConsumerWidget {
         AppCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SectionLabel('Head posture'),
-            MetricRow('Time aligned', m?.alignedSec == null ? na : '${m!.alignedSec} s'),
-            MetricRow('Slight deviation', m?.slightSec == null ? na : '${m!.slightSec} s'),
-            MetricRow('Sustained deviation', m?.deviatedSec == null ? na : '${m!.deviatedSec} s'),
+            MetricRow('Time aligned', m?.alignedSec == null ? na : '${m!.alignedSec!.toStringAsFixed(1)} s'),
+            MetricRow('Slight deviation', m?.slightSec == null ? na : '${m!.slightSec!.toStringAsFixed(1)} s'),
+            MetricRow('Deviation', m?.deviatedSec == null ? na : '${m!.deviatedSec!.toStringAsFixed(1)} s'),
             MetricRow('Reminders given',
                 last?.postureReminders == null ? na : '${last!.postureReminders}'),
             if (m?.headUsedSessionMedian ?? false)

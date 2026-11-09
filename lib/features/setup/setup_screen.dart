@@ -121,18 +121,29 @@ class _SetupScreenState extends ConsumerState<SetupScreen>
   }
 
   void _setReference() {
-    if (_recent.length < 3) {
+    final reading = _reading;
+    final yaw = reading?.yaw;
+    final pitch = reading?.pitch;
+    final roll = reading?.roll;
+    final currentPose = yaw != null && pitch != null && roll != null
+        ? HeadReference(yaw, pitch, roll)
+        : null;
+    if (_recent.isEmpty && currentPose == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Keep your face visible and steady, then try again.')));
       return;
     }
-    double avg(double Function(HeadReference r) f) =>
-        _recent.map(f).reduce((a, b) => a + b) / _recent.length;
-    ref.read(headReferenceProvider.notifier).set(HeadReference(
-          avg((r) => r.yaw),
-          avg((r) => r.pitch),
-          avg((r) => r.roll),
-        ));
+    // Prefer a short average when enough frames have arrived. The button can
+    // be tapped as soon as the face is detected, before three analyzed frames
+    // have been collected, so fall back to the current valid pose in that case.
+    final reference = _recent.length >= 3
+        ? HeadReference(
+            _recent.map((r) => r.yaw).reduce((a, b) => a + b) / _recent.length,
+            _recent.map((r) => r.pitch).reduce((a, b) => a + b) / _recent.length,
+            _recent.map((r) => r.roll).reduce((a, b) => a + b) / _recent.length,
+          )
+        : currentPose ?? _recent.last;
+    ref.read(headReferenceProvider.notifier).set(reference);
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Head reference saved')));
   }

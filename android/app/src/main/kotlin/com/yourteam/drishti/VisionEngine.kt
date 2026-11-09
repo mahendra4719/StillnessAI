@@ -209,7 +209,7 @@ class VisionEngine(private val context: Context) {
         val rvec = Mat(); val tvec = Mat(); val rot = Mat(); val proj = MatOfPoint2f()
         try {
             val ok = Calib3d.solvePnP(model3d, imgPts, k, dist, rvec, tvec, false, Calib3d.SOLVEPNP_ITERATIVE)
-            if (!ok) { out["poseStatus"] = "solvepnp_failed"; return }
+            if (!ok) { estimateLandmarkPose(lms, w, h, out); return }
             Calib3d.Rodrigues(rvec, rot)
             Calib3d.projectPoints(model3d, rvec, tvec, k, dist, proj)
             val pp = proj.toArray()
@@ -224,7 +224,7 @@ class VisionEngine(private val context: Context) {
                 r[2] * (r[3] * r[7] - r[4] * r[6])
             val tz = DoubleArray(3); tvec.get(0, 0, tz)
             if (!err.isFinite() || err > 60.0 || det < 0.8 || det > 1.2 || tz[2] <= 0.0) {
-                out["poseStatus"] = "invalid_pose"; return
+                estimateLandmarkPose(lms, w, h, out); return
             }
             out["yaw"] = Math.toDegrees(atan2(-r[6], hypot(r[0], r[3])))
             out["pitch"] = Math.toDegrees(atan2(r[7], r[8]))
@@ -235,6 +235,46 @@ class VisionEngine(private val context: Context) {
             imgPts.release(); k.release(); dist.release(); rvec.release(); tvec.release()
             rot.release(); proj.release()
         }
+    }
+
+    /**
+     * Fallback from facial geometry when solvePnP rejects its approximate 3D
+     * face model. These relative angles are sufficient for a personal head
+     * reference and posture comparisons.
+     */
+    private fun estimateLandmarkPose(
+        lms: List<NormalizedLandmark>, w: Int, h: Int, out: MutableMap<String, Any?>
+    ) {
+        val left = lms[33]
+        val right = lms[263]
+        val nose = lms[1]
+        val chin = lms[152]
+        val eyeDx = (right.x() - left.x()).toDouble() * w
+        val eyeDy = (right.y() - left.y()).toDouble() * h
+        val eyeWidth = hypot(eyeDx, eyeDy)
+        if (!eyeWidth.isFinite() || eyeWidth < w * 0.05) {
+            out["poseStatus"] = "pose_unavailable"
+            return
+        }
+
+        val eyeMidX = (left.x() + right.x()).toDouble() * w / 2.0
+        val eyeMidY = (left.y() + right.y()).toDouble() * h / 2.0
+        val noseX = nose.x().toDouble() * w
+        val noseY = nose.y().toDouble() * h
+        val chinY = chin.y().toDouble() * h
+        val yaw = Math.toDegrees(atan2((noseX - eyeMidX) * 2.0, eyeWidth))
+        val pitch = Math.toDegrees(
+            atan2(noseY - eyeMidY - (chinY - eyeMidY) * 0.55, eyeWidth)
+        )
+        val roll = Math.toDegrees(atan2(eyeDy, eyeDx))
+        if (!yaw.isFinite() || !pitch.isFinite() || !roll.isFinite()) {
+            out["poseStatus"] = "pose_unavailable"
+            return
+        }
+        out["yaw"] = yaw
+        out["pitch"] = pitch
+        out["roll"] = roll
+        out["poseStatus"] = "tracked_approx"
     }
 
     /** Ek aankh ka crop -> Model 1 -> CLOSED_OR_BLINK probability (null = crop nahi ban paya). */

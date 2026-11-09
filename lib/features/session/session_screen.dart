@@ -17,7 +17,7 @@ import '../../audio/posture_monitor.dart';
 import '../../analysis/summary_logic.dart';
 import '../../shared/debug.dart';
 
-const bool kQuickTest = true; // true karo to session sirf 10 second ka hoga
+const bool kQuickTest = false; // Enable only for a short development run.
 const int kMinSaveSec = 5; // isse chhota session save nahi hoga
 
 class SessionScreen extends ConsumerStatefulWidget {
